@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>پنل مدیر | مدرسه</title>
+<link rel="stylesheet" href="../assets/css/core.css">
+<link rel="stylesheet" href="../assets/css/layout.css">
+<link rel="stylesheet" href="../assets/css/components.css">
+<link rel="stylesheet" href="../assets/css/responsive.css">
+</head>
+<body>
+
+<div class="app">
+
+<aside class="sidebar" id="sidebar">
+    <div class="logo">
+        <div class="logo-icon">م</div>
+        <div><strong>مدرسه</strong><span>School Platform</span></div>
+    </div>
+
+    <div class="role-box">
+        <div class="role-label">محیط فعلی</div>
+        <div class="role-name" id="roleName">مدیر مدرسه</div>
+    </div>
+
+    <nav class="nav" id="nav"></nav>
+
+    <div class="sidebar-bottom">
+        <button class="nav button" onclick="logout()">🚪 خروج</button>
+    </div>
+</aside>
+
+<main class="main">
+    <header class="topbar">
+        <div class="top-left">
+            <button class="mobile-menu" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        </div>
+        <div class="top-right">
+            <div class="profile">
+                <div class="avatar" id="avatar">م</div>
+                <div>
+                    <div class="profile-name" id="profileName">—</div>
+                    <div class="profile-role" id="profileRole">—</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="content" id="content"></section>
+</main>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal" id="modalBox">
+        <div class="modal-head">
+            <div class="modal-title" id="modalTitle">عنوان</div>
+            <button class="close" onclick="closeModal()">×</button>
+        </div>
+        <div id="modalContent"></div>
+    </div>
+</div>
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/app.js"></script>
+<script src="../assets/js/navigation.js"></script>
+<script src="../assets/js/modal.js"></script>
+
+<script>
+
+/* =========================================================
+   NAV CONFIG
+   `available:false` items are real parts of the intended product
+   (per the project's roadmap) whose backend API doesn't exist yet.
+   They're shown, disabled, rather than hidden -- so the sidebar
+   honestly reflects the full intended admin surface.
+========================================================= */
+
+const NAV_ITEMS = [
+    { key: "dashboard",     icon: "🏠", label: "داشبورد" },
+    { key: "students",      icon: "🎓", label: "دانش‌آموزان" },
+    { key: "teachers",      icon: "👨‍🏫", label: "معلمان" },
+    { key: "parents",       icon: "👪", label: "والدین" },
+    { key: "classes",       icon: "🏫", label: "کلاس‌ها" },
+    { key: "subjects",      icon: "📚", label: "دروس" },
+    { key: "schedule",      icon: "🗓️", label: "برنامه هفتگی" },
+    { key: "announcements", icon: "📢", label: "اطلاعیه‌ها" },
+    { key: "messages",      icon: "💬", label: "پیام‌ها" },
+    { key: "reports",       icon: "📊", label: "گزارش‌ها", available: false, note: "API گزارش‌گیری مدیریتی هنوز ساخته نشده" },
+    { key: "settings",      icon: "⚙️", label: "تنظیمات", available: false, note: "API تنظیمات مدرسه هنوز ساخته نشده" },
+];
+
+let cache = { students: null, classes: null, announcements: null, conversations: null, teachers: null, subjects: null, parents: null };
+
+function navigate(key) {
+    setActiveNav(key);
+    render(key);
+}
+
+async function render(key) {
+    const content = document.getElementById("content");
+    content.innerHTML = `<div style="padding:60px;text-align:center;color:var(--muted)">در حال بارگذاری...</div>`;
+    try {
+        if (key === "dashboard") await renderDashboard();
+        else if (key === "students") await renderStudents();
+        else if (key === "classes") await renderClasses();
+        else if (key === "announcements") await renderAnnouncements();
+        else if (key === "messages") await renderMessages();
+        else if (key === "teachers") await renderTeachers();
+        else if (key === "subjects") await renderSubjects();
+        else if (key === "parents") await renderParents();
+        else if (key === "schedule") await renderSchedule();
+    } catch (e) {
+        content.innerHTML = `<div class="card"><div style="color:var(--red)">خطا در بارگذاری: ${e.message}</div></div>`;
+    }
+}
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
+async function renderDashboard() {
+    const [students, classes, announcements] = await Promise.all([
+        api.get("/api/admin/students"),
+        api.get("/api/admin/classes"),
+        api.get("/api/announcements").catch(() => []),
+    ]);
+    cache.students = students; cache.classes = classes; cache.announcements = announcements;
+
+    const activeStudents = students.filter(s => s.is_active).length;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div>
+                <div class="page-title">داشبورد مدیر</div>
+                <div class="page-subtitle">نمای کلی مدرسه</div>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-top"><div class="stat-icon">🎓</div></div>
+                <div class="stat-value">${students.length}</div>
+                <div class="stat-label">تعداد دانش‌آموزان</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top"><div class="stat-icon">✅</div></div>
+                <div class="stat-value">${activeStudents}</div>
+                <div class="stat-label">دانش‌آموزان فعال</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top"><div class="stat-icon">🏫</div></div>
+                <div class="stat-value">${classes.length}</div>
+                <div class="stat-label">تعداد کلاس‌ها</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-top"><div class="stat-icon">📢</div></div>
+                <div class="stat-value">${announcements.length}</div>
+                <div class="stat-label">اطلاعیه‌های اخیر</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div class="card-title">آخرین اطلاعیه‌ها</div>
+                <button class="card-action" onclick="navigate('announcements')">مشاهده همه</button>
+            </div>
+            ${announcements.slice(0, 5).map(a => `
+                <div class="activity">
+                    <div class="activity-icon">📢</div>
+                    <div>
+                        <div class="activity-text"><b>${a.title}</b> — ${a.author_name}</div>
+                        <div class="activity-time">${a.created_at}</div>
+                    </div>
+                </div>
+            `).join("") || `<div class="page-subtitle">اطلاعیه‌ای ثبت نشده</div>`}
+        </div>
+    `;
+}
+
+/* =========================================================
+   STUDENTS
+========================================================= */
+
+async function renderStudents() {
+    const students = await api.get("/api/admin/students");
+    cache.students = students;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div>
+                <div class="page-title">دانش‌آموزان</div>
+                <div class="page-subtitle">${students.length} دانش‌آموز</div>
+            </div>
+            <button class="primary-btn" onclick="openStudentForm()">+ ثبت دانش‌آموز جدید</button>
+        </div>
+
+        <div class="module">
+            <div class="module-body table-wrap">
+                <table>
+                    <thead><tr><th>نام</th><th>نام کاربری</th><th>کد دانش‌آموزی</th><th>وضعیت</th></tr></thead>
+                    <tbody>
+                        ${students.map(s => `
+                            <tr>
+                                <td>${s.full_name}</td>
+                                <td>${s.username}</td>
+                                <td>${s.student_code || "—"}</td>
+                                <td><span class="status ${s.is_active ? "green" : "red"}">${s.is_active ? "فعال" : "غیرفعال"}</span></td>
+                            </tr>
+                        `).join("") || `<tr><td colspan="4" style="text-align:center;color:var(--muted)">دانش‌آموزی ثبت نشده</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+async function openStudentForm() {
+    const classes = cache.classes || await api.get("/api/admin/classes");
+    cache.classes = classes;
+
+    if (classes.length === 0) {
+        toast("ابتدا باید حداقل یک کلاس بسازید", true);
+        return;
+    }
+
+    openModal("ثبت دانش‌آموز جدید", `
+        <form id="studentForm">
+            <div class="form-group"><label>نام کامل</label><input class="form-input" name="full_name" required></div>
+            <div class="form-group"><label>نام کاربری</label><input class="form-input" name="username" required></div>
+            <div class="form-group"><label>رمز عبور</label><input class="form-input" name="password" type="password" required></div>
+            <div class="form-group"><label>کلاس</label>
+                <select class="form-input" name="class_id" required>
+                    ${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}
+                </select>
+            </div>
+            <div class="form-group"><label>کد دانش‌آموزی (اختیاری)</label><input class="form-input" name="student_code"></div>
+            <div class="form-group"><label>تلفن (اختیاری)</label><input class="form-input" name="phone"></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("studentForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        await withToast(() => api.post("/api/admin/students", body), "دانش‌آموز ثبت شد");
+        closeModal();
+        renderStudents();
+    });
+}
+
+/* =========================================================
+   CLASSES
+========================================================= */
+
+async function renderClasses() {
+    const classes = await api.get("/api/admin/classes");
+    cache.classes = classes;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div>
+                <div class="page-title">کلاس‌ها</div>
+                <div class="page-subtitle">${classes.length} کلاس</div>
+            </div>
+            <button class="primary-btn" onclick="openClassForm()">+ کلاس جدید</button>
+        </div>
+
+        <div class="module">
+            <div class="module-body table-wrap">
+                <table>
+                    <thead><tr><th>نام کلاس</th><th>پایه</th><th></th></tr></thead>
+                    <tbody>
+                        ${classes.map(c => `
+                            <tr>
+                                <td>${c.name}</td>
+                                <td>${c.grade || "—"}</td>
+                                <td><button class="secondary-btn" onclick="deleteClass(${c.id})">حذف</button></td>
+                            </tr>
+                        `).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--muted)">کلاسی ثبت نشده</td></tr>`}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function openClassForm() {
+    openModal("ساخت کلاس جدید", `
+        <form id="classForm">
+            <div class="form-group"><label>نام کلاس</label><input class="form-input" name="name" required></div>
+            <div class="form-group"><label>پایه (اختیاری)</label><input class="form-input" name="grade"></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("classForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        await withToast(() => api.post("/api/admin/classes", body), "کلاس ساخته شد");
+        closeModal();
+        renderClasses();
+    });
+}
+
+async function deleteClass(id) {
+    if (!confirm("از حذف این کلاس مطمئن هستید؟")) return;
+    await withToast(() => api.del("/api/admin/classes", { id }), "کلاس حذف شد");
+    renderClasses();
+}
+
+/* =========================================================
+   TEACHERS
+========================================================= */
+
+async function renderTeachers() {
+    const teachers = await api.get("/api/admin/teachers");
+    cache.teachers = teachers;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div><div class="page-title">معلمان</div><div class="page-subtitle">${teachers.length} معلم</div></div>
+            <button class="primary-btn" onclick="openTeacherForm()">+ ثبت معلم جدید</button>
+        </div>
+        <div class="module"><div class="module-body table-wrap">
+            <table>
+                <thead><tr><th>نام</th><th>نام کاربری</th><th>تخصص</th><th>وضعیت</th><th></th></tr></thead>
+                <tbody>
+                    ${teachers.map(t => `
+                        <tr>
+                            <td>${t.full_name}</td><td>${t.username}</td><td>${t.specialty || "—"}</td>
+                            <td><span class="status ${t.is_active ? "green" : "red"}">${t.is_active ? "فعال" : "غیرفعال"}</span></td>
+                            <td><button class="secondary-btn" onclick="openAssignForm(${t.id}, '${t.full_name.replace(/'/g, "")}')">تخصیص کلاس/درس</button></td>
+                        </tr>
+                    `).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--muted)">معلمی ثبت نشده</td></tr>`}
+                </tbody>
+            </table>
+        </div></div>
+    `;
+}
+
+function openTeacherForm() {
+    openModal("ثبت معلم جدید", `
+        <form id="teacherForm">
+            <div class="form-group"><label>نام کامل</label><input class="form-input" name="full_name" required></div>
+            <div class="form-group"><label>نام کاربری</label><input class="form-input" name="username" required></div>
+            <div class="form-group"><label>رمز عبور</label><input class="form-input" name="password" type="password" required></div>
+            <div class="form-group"><label>تخصص (اختیاری)</label><input class="form-input" name="specialty"></div>
+            <div class="form-group"><label>تلفن (اختیاری)</label><input class="form-input" name="phone"></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("teacherForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        await withToast(() => api.post("/api/admin/teachers", body), "معلم ثبت شد");
+        closeModal();
+        renderTeachers();
+    });
+}
+
+async function openAssignForm(teacherId, teacherName) {
+    const [classes, subjects] = await Promise.all([loadClasses(), api.get("/api/admin/subjects")]);
+    cache.subjects = subjects;
+
+    if (classes.length === 0 || subjects.length === 0) {
+        toast("ابتدا باید حداقل یک کلاس و یک درس بسازید", true);
+        return;
+    }
+
+    openModal(`تخصیص کلاس/درس به ${teacherName}`, `
+        <form id="assignForm">
+            <div class="form-group"><label>کلاس</label>
+                <select class="form-input" name="class_id" required>${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}</select>
+            </div>
+            <div class="form-group"><label>درس</label>
+                <select class="form-input" name="subject_id" required>${subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join("")}</select>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت تخصیص</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("assignForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        body.teacher_id = teacherId;
+        await withToast(() => api.post("/api/admin/teaching-assignments", body), "تخصیص ثبت شد");
+        closeModal();
+    });
+}
+
+/* =========================================================
+   SUBJECTS
+========================================================= */
+
+async function renderSubjects() {
+    const subjects = await api.get("/api/admin/subjects");
+    cache.subjects = subjects;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div><div class="page-title">دروس</div><div class="page-subtitle">${subjects.length} درس</div></div>
+            <button class="primary-btn" onclick="openSubjectForm()">+ درس جدید</button>
+        </div>
+        <div class="module"><div class="module-body table-wrap">
+            <table>
+                <thead><tr><th>نام درس</th><th>پایه</th><th></th></tr></thead>
+                <tbody>
+                    ${subjects.map(s => `
+                        <tr><td>${s.name}</td><td>${s.grade || "—"}</td><td><button class="secondary-btn" onclick="deleteSubject(${s.id})">حذف</button></td></tr>
+                    `).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--muted)">درسی ثبت نشده</td></tr>`}
+                </tbody>
+            </table>
+        </div></div>
+    `;
+}
+
+function openSubjectForm() {
+    openModal("درس جدید", `
+        <form id="subjectForm">
+            <div class="form-group"><label>نام درس</label><input class="form-input" name="name" required></div>
+            <div class="form-group"><label>پایه (اختیاری)</label><input class="form-input" name="grade"></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("subjectForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        await withToast(() => api.post("/api/admin/subjects", body), "درس ساخته شد");
+        closeModal();
+        renderSubjects();
+    });
+}
+
+async function deleteSubject(id) {
+    if (!confirm("از حذف این درس مطمئن هستید؟")) return;
+    await withToast(() => api.del("/api/admin/subjects", { id }), "درس حذف شد");
+    renderSubjects();
+}
+
+/* =========================================================
+   PARENTS
+========================================================= */
+
+async function renderParents() {
+    const parents = await api.get("/api/admin/parents");
+    cache.parents = parents;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div><div class="page-title">والدین</div><div class="page-subtitle">${parents.length} والد</div></div>
+            <button class="primary-btn" onclick="openParentForm()">+ ثبت والد جدید</button>
+        </div>
+        <div class="module"><div class="module-body table-wrap">
+            <table>
+                <thead><tr><th>نام</th><th>نام کاربری</th><th></th></tr></thead>
+                <tbody>
+                    ${parents.map(p => `
+                        <tr><td>${p.full_name}</td><td>${p.username}</td>
+                            <td><button class="secondary-btn" onclick="openLinkChildForm(${p.id}, '${p.full_name.replace(/'/g, "")}')">اتصال فرزند</button></td>
+                        </tr>
+                    `).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--muted)">والدی ثبت نشده</td></tr>`}
+                </tbody>
+            </table>
+        </div></div>
+    `;
+}
+
+function openParentForm() {
+    openModal("ثبت والد جدید", `
+        <form id="parentForm">
+            <div class="form-group"><label>نام کامل</label><input class="form-input" name="full_name" required></div>
+            <div class="form-group"><label>نام کاربری</label><input class="form-input" name="username" required></div>
+            <div class="form-group"><label>رمز عبور</label><input class="form-input" name="password" type="password" required></div>
+            <div class="form-group"><label>تلفن (اختیاری)</label><input class="form-input" name="phone"></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("parentForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        await withToast(() => api.post("/api/admin/parents", body), "والد ثبت شد");
+        closeModal();
+        renderParents();
+    });
+}
+
+async function openLinkChildForm(parentId, parentName) {
+    const students = await loadStudents();
+    openModal(`اتصال فرزند به ${parentName}`, `
+        <form id="linkChildForm">
+            <div class="form-group"><label>دانش‌آموز</label>
+                <select class="form-input" name="student_id" required>${students.map(s => `<option value="${s.id}">${s.full_name}</option>`).join("")}</select>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">اتصال</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("linkChildForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const studentId = fd.get("student_id");
+        await withToast(() => api.post("/api/admin/parent-students", { parent_id: parentId, student_id: Number(studentId) }), "فرزند متصل شد");
+        closeModal();
+    });
+}
+
+/* =========================================================
+   SCHEDULE
+========================================================= */
+
+const WEEKDAY_LABELS = ["شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه"];
+
+async function renderSchedule() {
+    const classes = await loadClasses();
+    document.getElementById("content").innerHTML = `
+        <div class="page-head"><div><div class="page-title">برنامه هفتگی</div><div class="page-subtitle">انتخاب کلاس</div></div></div>
+        <div class="form-group" style="max-width:280px"><label>کلاس</label>
+            <select class="form-input" id="scheduleClassSelect" onchange="loadSchedule(this.value)">
+                <option value="">— انتخاب کنید —</option>
+                ${classes.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}
+            </select>
+        </div>
+        <div id="scheduleBox"></div>
+    `;
+}
+
+async function loadSchedule(classId) {
+    const box = document.getElementById("scheduleBox");
+    if (!classId) { box.innerHTML = ""; return; }
+    const entries = await api.get(`/api/admin/schedules?class_id=${classId}`);
+    box.innerHTML = `
+        <div class="page-head" style="margin-top:20px">
+            <div class="page-subtitle">${entries.length} جلسه در هفته</div>
+            <button class="primary-btn" onclick="openScheduleForm(${classId})">+ جلسه جدید</button>
+        </div>
+        <div class="module"><div class="module-body table-wrap">
+            <table>
+                <thead><tr><th>روز</th><th>ساعت</th><th>درس</th><th>معلم</th><th></th></tr></thead>
+                <tbody>
+                    ${entries.map(s => `
+                        <tr>
+                            <td>${WEEKDAY_LABELS[s.day_of_week] ?? s.day_of_week}</td>
+                            <td>${s.start_time} - ${s.end_time}</td>
+                            <td>${s.subject_name}</td><td>${s.teacher_name}</td>
+                            <td><button class="secondary-btn" onclick="deleteScheduleEntry(${s.id}, ${classId})">حذف</button></td>
+                        </tr>
+                    `).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--muted)">برنامه‌ای ثبت نشده</td></tr>`}
+                </tbody>
+            </table>
+        </div></div>
+    `;
+}
+
+async function openScheduleForm(classId) {
+    const [teachers, subjects] = await Promise.all([
+        cache.teachers || api.get("/api/admin/teachers"),
+        cache.subjects || api.get("/api/admin/subjects"),
+    ]);
+    cache.teachers = teachers; cache.subjects = subjects;
+
+    openModal("جلسه‌ی جدید", `
+        <form id="scheduleForm">
+            <div class="form-group"><label>روز هفته</label>
+                <select class="form-input" name="day_of_week" required>
+                    ${WEEKDAY_LABELS.map((d, i) => `<option value="${i}">${d}</option>`).join("")}
+                </select>
+            </div>
+            <div class="form-group"><label>درس</label>
+                <select class="form-input" name="subject_id" required>${subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join("")}</select>
+            </div>
+            <div class="form-group"><label>معلم</label>
+                <select class="form-input" name="teacher_id" required>${teachers.map(t => `<option value="${t.id}">${t.full_name}</option>`).join("")}</select>
+            </div>
+            <div class="form-group"><label>ساعت شروع</label><input class="form-input" name="start_time" type="time" required></div>
+            <div class="form-group"><label>ساعت پایان</label><input class="form-input" name="end_time" type="time" required></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ثبت</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("scheduleForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        body.class_id = classId;
+        body.day_of_week = Number(body.day_of_week);
+        await withToast(() => api.post("/api/admin/schedules", body), "برنامه ثبت شد");
+        closeModal();
+        loadSchedule(classId);
+    });
+}
+
+async function deleteScheduleEntry(id, classId) {
+    if (!confirm("از حذف این جلسه مطمئن هستید؟")) return;
+    await withToast(() => api.del("/api/admin/schedules", { id }), "جلسه حذف شد");
+    loadSchedule(classId);
+}
+
+/* =========================================================
+   ANNOUNCEMENTS
+========================================================= */
+
+async function renderAnnouncements() {
+    const announcements = await api.get("/api/announcements");
+    cache.announcements = announcements;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div>
+                <div class="page-title">اطلاعیه‌ها</div>
+                <div class="page-subtitle">${announcements.length} اطلاعیه</div>
+            </div>
+            <button class="primary-btn" onclick="openAnnouncementForm()">+ اطلاعیه جدید</button>
+        </div>
+
+        ${announcements.map(a => `
+            <div class="card" style="margin-bottom:14px">
+                <div class="card-head">
+                    <div class="card-title">${a.title}</div>
+                    <span class="status green">${targetLabel(a.target)}</span>
+                </div>
+                <div class="page-subtitle" style="margin-bottom:8px">${a.author_name} — ${a.created_at}</div>
+                <div style="font-size:13px;line-height:1.9">${a.body}</div>
+            </div>
+        `).join("") || `<div class="card"><div class="page-subtitle">اطلاعیه‌ای ثبت نشده</div></div>`}
+    `;
+}
+
+function targetLabel(t) {
+    return { all: "همه", admin: "مدیران", teacher: "معلمان", student: "دانش‌آموزان", parent: "والدین" }[t] || t;
+}
+
+function openAnnouncementForm() {
+    openModal("اطلاعیه جدید", `
+        <form id="announcementForm">
+            <div class="form-group"><label>عنوان</label><input class="form-input" name="title" required></div>
+            <div class="form-group"><label>متن</label><textarea class="form-input" name="body" rows="4" style="height:auto;padding:10px 12px" required></textarea></div>
+            <div class="form-group"><label>مخاطب</label>
+                <select class="form-input" name="target">
+                    <option value="all">همه</option>
+                    <option value="teacher">معلمان</option>
+                    <option value="student">دانش‌آموزان</option>
+                    <option value="parent">والدین</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">انتشار</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("announcementForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const body = Object.fromEntries(fd.entries());
+        await withToast(() => api.post("/api/announcements", body), "اطلاعیه منتشر شد");
+        closeModal();
+        renderAnnouncements();
+    });
+}
+
+/* =========================================================
+   MESSAGES
+   Note: starting a new conversation currently only supports picking a
+   student as the other member, because there's no API yet to list
+   teachers/parents by name (only /api/admin/students exists).
+========================================================= */
+
+async function renderMessages() {
+    const conversations = await api.get("/api/messages/conversations");
+    cache.conversations = conversations;
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head">
+            <div>
+                <div class="page-title">پیام‌ها</div>
+                <div class="page-subtitle">${conversations.length} گفتگو</div>
+            </div>
+            <button class="primary-btn" onclick="openNewConversationForm()">+ گفتگوی جدید</button>
+        </div>
+
+        <div class="module">
+            <div class="module-body">
+                ${conversations.map(c => `
+                    <div class="activity" style="cursor:pointer" onclick="openConversation(${c.id}, '${(c.title || "گفتگو").replace(/'/g, "")}')">
+                        <div class="activity-icon">💬</div>
+                        <div>
+                            <div class="activity-text"><b>${c.title || (c.type === "direct" ? "گفتگوی مستقیم" : "گروه")}</b></div>
+                            <div class="activity-time">${c.last_message || "پیامی ارسال نشده"}</div>
+                        </div>
+                    </div>
+                `).join("") || `<div class="page-subtitle">گفتگویی وجود ندارد</div>`}
+            </div>
+        </div>
+    `;
+}
+
+async function openNewConversationForm() {
+    const [students, teachers, parents] = await Promise.all([
+        cache.students || api.get("/api/admin/students"),
+        cache.teachers || api.get("/api/admin/teachers"),
+        cache.parents || api.get("/api/admin/parents"),
+    ]);
+    cache.students = students; cache.teachers = teachers; cache.parents = parents;
+
+    openModal("گفتگوی جدید", `
+        <form id="newConvForm">
+            <div class="form-group"><label>طرف گفتگو</label>
+                <select class="form-input" name="member_user_id" required>
+                    <optgroup label="معلمان">${teachers.map(t => `<option value="${t.user_id}">${t.full_name}</option>`).join("")}</optgroup>
+                    <optgroup label="دانش‌آموزان">${students.map(s => `<option value="${s.user_id}">${s.full_name}</option>`).join("")}</optgroup>
+                    <optgroup label="والدین">${parents.map(p => `<option value="${p.user_id}">${p.full_name}</option>`).join("")}</optgroup>
+                </select>
+            </div>
+            <div class="form-group"><label>پیام اول</label><textarea class="form-input" name="body" rows="3" style="height:auto;padding:10px 12px" required></textarea></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">شروع گفتگو</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">انصراف</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("newConvForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const memberUserId = fd.get("member_user_id");
+        const firstMessage = fd.get("body");
+        await withToast(async () => {
+            const conv = await api.post("/api/messages/conversations", { type: "direct", member_user_ids: [Number(memberUserId)] });
+            await api.post("/api/messages/messages", { conversation_id: conv.id, body: firstMessage });
+        }, "گفتگو ساخته شد");
+        closeModal();
+        renderMessages();
+    });
+}
+
+async function openConversation(id, title) {
+    const messages = await api.get(`/api/messages/messages?conversation_id=${id}`);
+    openModal(title, `
+        <div style="max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+            ${messages.map(m => `
+                <div style="background:var(--surface2);border-radius:10px;padding:10px 12px;font-size:12px">
+                    <b>${m.sender_name || "کاربر"}</b><div style="margin-top:4px">${m.body}</div>
+                </div>
+            `).join("") || `<div class="page-subtitle">پیامی وجود ندارد</div>`}
+        </div>
+        <form id="replyForm">
+            <div class="form-group"><input class="form-input" name="body" placeholder="پیام..." required></div>
+            <div class="modal-footer">
+                <button type="submit" class="primary-btn">ارسال</button>
+                <button type="button" class="secondary-btn" onclick="closeModal()">بستن</button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById("replyForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        await withToast(() => api.post("/api/messages/messages", { conversation_id: id, body: fd.get("body") }));
+        openConversation(id, title);
+    });
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+
+(function () {
+    const session = initShell("admin");
+    if (!session) return;
+    renderNav(NAV_ITEMS, "dashboard");
+    render("dashboard");
+})();
+
+</script>
+</body>
+</html>
