@@ -6,7 +6,7 @@ import { q } from "../_shared/db.js";
 import { authenticate, requirePermission } from "../_shared/auth.js";
 import { getStudentRecord, loadAssignmentForStudent } from "../_shared/ownership.js";
 import { ok, created, errors } from "../_shared/response.js";
-import { requireFields, readJson, withErrorHandling } from "../_shared/validate.js";
+import { requireFields, readJson, withErrorHandling, requireMaxLength } from "../_shared/validate.js";
 
 const MAX_ANSWER_DATA_CHARS = 500_000; // ~500KB of base64 (~365KB raw binary)
 
@@ -23,6 +23,7 @@ export const onRequestPost = withErrorHandling(async ({ request, env }) => {
     if (assignment.submission_type === "text" && !body.body) {
         throw errors.validation("متن پاسخ الزامی است");
     }
+    requireMaxLength(body.body, 20000, "متن پاسخ");
     if ((assignment.submission_type === "photo" || assignment.submission_type === "audio") && !body.answer_data) {
         throw errors.validation("فایل پاسخ الزامی است");
     }

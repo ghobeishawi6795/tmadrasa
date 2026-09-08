@@ -11,7 +11,7 @@ export const onRequestGet = withErrorHandling(async ({ request, env }) => {
     const db = q(env);
 
     const rows = await db.all(
-        `SELECT st.id as student_id, u.full_name, c.name as class_name, c.id as class_id
+        `SELECT st.id as student_id, u.full_name, c.name as class_name, c.id as class_id, c.education_level
            FROM parent_students ps
            JOIN students st ON st.id = ps.student_id
            JOIN users u ON u.id = st.user_id

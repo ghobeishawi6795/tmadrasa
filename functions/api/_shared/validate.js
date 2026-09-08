@@ -14,6 +14,16 @@ export function requirePositiveInt(value, label) {
     return n;
 }
 
+// Server-side text-length cap. Client-side limits alone are never enough --
+// a direct API call can bypass any HTML maxlength. Applied to free-text
+// fields that end up in D1 (no blob storage) so one bad request can't bloat
+// a row or a query result unexpectedly.
+export function requireMaxLength(value, max, label) {
+    if (typeof value === "string" && value.length > max) {
+        throw errors.validation(`${label} نباید بیشتر از ${max} نویسه باشد`);
+    }
+}
+
 export async function readJson(request) {
     try {
         return await request.json();

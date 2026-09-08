@@ -77,6 +77,7 @@
 
 const NAV_ITEMS = [
     { key: "dashboard",   icon: "🏠", label: "داشبورد" },
+    { key: "help",        icon: "❓", label: "راهنما" },
     { key: "classes",     icon: "🏫", label: "کلاس‌ها" },
     { key: "assignments", icon: "📚", label: "تکالیف" },
     { key: "exams",       icon: "📝", label: "آزمون‌ها" },
@@ -101,6 +102,7 @@ async function render(key) {
     content.innerHTML = `<div style="padding:60px;text-align:center;color:var(--muted)">در حال بارگذاری...</div>`;
     try {
         if (key === "dashboard") await renderDashboard();
+        else if (key === "help") await renderHelp();
         else if (key === "classes") await renderClasses();
         else if (key === "assignments") await renderAssignments();
         else if (key === "exams") await renderExams();
@@ -181,6 +183,33 @@ function examStatusLabel(s) {
 }
 function examStatusColor(s) {
     return { draft: "orange", published: "green", closed: "red", archived: "red" }[s] || "orange";
+}
+
+/* =========================================================
+   HELP
+========================================================= */
+
+async function renderHelp() {
+    const sections = [
+        ["🏫 کلاس‌ها", "فهرست کلاس/درس‌هایی که مدیر مدرسه واقعاً به شما تخصیص داده. اگر خالی است، از مدیر بخواهید شما را به یک کلاس/درس تخصیص دهد."],
+        ["📚 تکالیف", "ساخت تکلیف برای یک کلاس/درس مشخص، با نوع پاسخ متنی/عکس/صوتی. بعد از ارسال دانش‌آموزان، از «مشاهده پاسخ‌ها» برای دیدن و نمره‌دهی استفاده کنید."],
+        ["📝 آزمون‌ها", "ساخت آزمون به‌صورت پیش‌نویس، افزودن سؤال از «بانک سؤال»، سپس «انتشار» تا دانش‌آموزان بتوانند شرکت کنند. بعد از انتشار فقط می‌توانید آزمون را ببندید، نه ویرایش."],
+        ["🗂️ بانک سؤال", "ساخت سؤال با هر یک از ۵ نوع (چندگزینه‌ای، درست/غلط، عددی، پاسخ کوتاه، تشریحی). چندگزینه‌ای/درست‌غلط/عددی خودکار تصحیح می‌شوند؛ بقیه نیاز به تصحیح دستی دارند."],
+        ["✅ تصحیح دستی", "پاسخ‌های پاسخ‌کوتاه/تشریحیِ آزمون‌ها که نیاز به بررسی دستی دارند، اینجا نمره‌گذاری می‌شوند."],
+        ["📋 حضور و غیاب", "برای یک کلاس، یک جلسه (روز) بسازید و وضعیت هر دانش‌آموز را ثبت کنید."],
+        ["🎯 نمرات", "برای یک کلاس/درس، نمرات دستی (غیر از آزمون/تکلیف) را ثبت کنید — مثلاً نمره‌ی مشارکت کلاسی."],
+        ["💬 پیام‌ها", "گفتگو با دانش‌آموزان."],
+    ];
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head"><div><div class="page-title">راهنما</div><div class="page-subtitle">توضیح هر بخش از پنل معلم</div></div></div>
+        ${sections.map(([title, text]) => `
+            <div class="card" style="margin-bottom:12px">
+                <div class="card-head"><div class="card-title">${title}</div></div>
+                <div style="font-size:13px;line-height:2;color:var(--muted)">${text}</div>
+            </div>
+        `).join("")}
+    `;
 }
 
 /* =========================================================

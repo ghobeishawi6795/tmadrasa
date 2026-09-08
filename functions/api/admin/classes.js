@@ -21,15 +21,21 @@ export const onRequestPost = withErrorHandling(async ({ request, env }) => {
     await requirePermission(env, user, "classes.create");
     const body = await readJson(request);
     requireFields(body, ["name"]);
+
+    const educationLevel = body.education_level || "secondary";
+    if (!["elementary", "secondary"].includes(educationLevel)) {
+        throw errors.validation("education_level باید elementary یا secondary باشد");
+    }
+
     const db = q(env);
     const result = await db.run(
-        `INSERT INTO classes (school_id, name, grade) VALUES (?, ?, ?)`,
-        user.school_id, body.name, body.grade || null
+        `INSERT INTO classes (school_id, name, grade, education_level) VALUES (?, ?, ?, ?)`,
+        user.school_id, body.name, body.grade || null, educationLevel
     );
     await writeAudit(env, {
         schoolId: user.school_id, actorUserId: user.id, action: "class.create",
         entityType: "class", entityId: result.meta.last_row_id,
-        meta: { name: body.name }, request,
+        meta: { name: body.name, education_level: educationLevel }, request,
     });
 
     return created({ id: result.meta.last_row_id }, "کلاس ساخته شد");

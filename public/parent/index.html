@@ -75,6 +75,7 @@
 
 const NAV_ITEMS = [
     { key: "dashboard",   icon: "🏠", label: "خانه" },
+    { key: "help",        icon: "❓", label: "راهنما" },
     { key: "children",    icon: "👨‍👩‍👧", label: "فرزندان" },
     { key: "grades",      icon: "🎯", label: "وضعیت تحصیلی" },
     { key: "assignments", icon: "📚", label: "تکالیف" },
@@ -106,11 +107,13 @@ function childSelectorHtml(children) {
         <div class="form-group" style="max-width:260px">
             <label>فرزند</label>
             <select class="form-input" onchange="selectedChild = Number(this.value); render(currentPageKey())">
-                ${children.map(c => `<option value="${c.student_id}" ${c.student_id === selectedChild ? "selected" : ""}>${c.full_name}</option>`).join("")}
+                ${children.map(c => `<option value="${c.student_id}" ${c.student_id === selectedChild ? "selected" : ""}>${c.full_name} (${educationLevelLabel(c.education_level)})</option>`).join("")}
             </select>
         </div>
     `;
 }
+
+function educationLevelLabel(l) { return l === "elementary" ? "ابتدایی" : "دبیرستان"; }
 
 let __currentKey = "dashboard";
 function currentPageKey() { return __currentKey; }
@@ -121,11 +124,12 @@ async function render(key) {
     content.innerHTML = `<div style="padding:60px;text-align:center;color:var(--muted)">در حال بارگذاری...</div>`;
     try {
         const children = await loadChildren();
-        if (children.length === 0 && key !== "dashboard" && key !== "messages" && key !== "announcements") {
+        if (children.length === 0 && key !== "dashboard" && key !== "messages" && key !== "announcements" && key !== "help") {
             content.innerHTML = `<div class="card"><div class="page-subtitle">هنوز فرزندی به حساب شما متصل نشده است.</div></div>`;
             return;
         }
         if (key === "dashboard") await renderDashboard();
+        else if (key === "help") await renderHelp();
         else if (key === "children") await renderChildren();
         else if (key === "grades") await renderGrades();
         else if (key === "assignments") await renderAssignments();
@@ -172,6 +176,33 @@ async function renderDashboard() {
 }
 
 /* =========================================================
+   HELP
+========================================================= */
+
+async function renderHelp() {
+    const sections = [
+        ["👨‍👩‍👧 فرزندان", "لیست فرزندانی که مدیر مدرسه به حساب شما متصل کرده. اگر فرزندی نمی‌بینید، از مدیر مدرسه بخواهید فرزندتان را به حساب شما وصل کند."],
+        ["🎯 وضعیت تحصیلی", "کارنامه و نمرات هر درسِ فرزند — اگر بیش از یک فرزند دارید، از دراپ‌داون بالای صفحه فرزند را انتخاب کنید."],
+        ["📚 تکالیف", "وضعیت تکالیف فرزند (ارسال‌شده/تصحیح‌شده/نمره) — فقط مشاهده، ارسال پاسخ فقط از حساب خودِ دانش‌آموز ممکن است."],
+        ["📝 آزمون‌ها", "نتیجه‌ی آزمون‌های فرزند — سؤالات آزمون هرگز نمایش داده نمی‌شود، فقط نتیجه."],
+        ["📋 حضور و غیاب", "سابقه‌ی حضور/غیاب فرزند."],
+        ["🗓️ برنامه هفتگی", "برنامه‌ی کلاسیِ فرزند."],
+        ["💬 پیام مدرسه", "پیام‌هایی که معلم یا مدیر برایتان فرستاده — می‌توانید پاسخ بدهید."],
+        ["📢 اطلاعیه‌ها", "اطلاعیه‌های مدرسه."],
+    ];
+
+    document.getElementById("content").innerHTML = `
+        <div class="page-head"><div><div class="page-title">راهنما</div><div class="page-subtitle">توضیح هر بخش</div></div></div>
+        ${sections.map(([title, text]) => `
+            <div class="card" style="margin-bottom:12px">
+                <div class="card-head"><div class="card-title">${title}</div></div>
+                <div style="font-size:13px;line-height:2;color:var(--muted)">${text}</div>
+            </div>
+        `).join("")}
+    `;
+}
+
+/* =========================================================
    CHILDREN
 ========================================================= */
 
@@ -181,8 +212,8 @@ async function renderChildren() {
         <div class="page-head"><div><div class="page-title">فرزندان</div><div class="page-subtitle">${children.length} فرزند</div></div></div>
         <div class="module"><div class="module-body table-wrap">
             <table>
-                <thead><tr><th>نام</th><th>کلاس</th></tr></thead>
-                <tbody>${children.map(c => `<tr><td>${c.full_name}</td><td>${c.class_name || "—"}</td></tr>`).join("") || `<tr><td colspan="2" style="text-align:center;color:var(--muted)">فرزندی ثبت نشده</td></tr>`}</tbody>
+                <thead><tr><th>نام</th><th>کلاس</th><th>سطح تحصیلی</th></tr></thead>
+                <tbody>${children.map(c => `<tr><td>${c.full_name}</td><td>${c.class_name || "—"}</td><td>${educationLevelLabel(c.education_level)}</td></tr>`).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--muted)">فرزندی ثبت نشده</td></tr>`}</tbody>
             </table>
         </div></div>
     `;

@@ -6,7 +6,7 @@
 import { q } from "../_shared/db.js";
 import { authenticate, requirePermission } from "../_shared/auth.js";
 import { ok, created, errors } from "../_shared/response.js";
-import { requireFields, readJson, withErrorHandling } from "../_shared/validate.js";
+import { requireFields, readJson, withErrorHandling, requireMaxLength } from "../_shared/validate.js";
 
 async function assertMember(db, conversationId, userId) {
     const row = await db.first(
@@ -46,6 +46,7 @@ export const onRequestPost = withErrorHandling(async ({ request, env }) => {
     const db = q(env);
     const body = await readJson(request);
     requireFields(body, ["conversation_id", "body"]);
+    requireMaxLength(body.body, 5000, "متن پیام");
     await assertMember(db, body.conversation_id, user.id);
 
     if (body.reply_to_id) {
@@ -68,8 +69,7 @@ export const onRequestPut = withErrorHandling(async ({ request, env }) => {
     const db = q(env);
     const body = await readJson(request);
     requireFields(body, ["id", "body"]);
-
-    const message = await db.first(`SELECT * FROM messages WHERE id = ?`, body.id);
+    requireMaxLength(body.body, 5000, "متن پیام");
     if (!message || message.deleted_at) throw errors.notFound("پیام پیدا نشد");
     if (message.sender_id !== user.id) throw errors.forbidden("فقط نویسنده پیام می‌تواند آن را ویرایش کند");
 

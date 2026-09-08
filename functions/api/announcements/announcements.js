@@ -4,7 +4,7 @@
 import { q } from "../_shared/db.js";
 import { authenticate, requirePermission, hasRole } from "../_shared/auth.js";
 import { ok, created, errors } from "../_shared/response.js";
-import { requireFields, readJson, withErrorHandling } from "../_shared/validate.js";
+import { requireFields, readJson, withErrorHandling, requireMaxLength } from "../_shared/validate.js";
 
 const VALID_TARGETS = ["admin", "teacher", "student", "parent", "all"];
 
@@ -36,6 +36,8 @@ export const onRequestPost = withErrorHandling(async ({ request, env }) => {
 
     const body = await readJson(request);
     requireFields(body, ["title", "body"]);
+    requireMaxLength(body.title, 200, "عنوان");
+    requireMaxLength(body.body, 10000, "متن اطلاعیه");
     const target = body.target || "all";
     if (!VALID_TARGETS.includes(target)) throw errors.validation("target نامعتبر است");
 
